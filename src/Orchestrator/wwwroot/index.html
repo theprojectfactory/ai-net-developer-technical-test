@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AI Orchestrator — Test Console</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    max-width: 720px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+  }
+  h1 { font-size: 1.25rem; }
+  #log {
+    border: 1px solid #8888;
+    border-radius: 8px;
+    min-height: 320px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    overflow-y: auto;
+    max-height: 55vh;
+  }
+  .msg { margin-bottom: 0.75rem; white-space: pre-wrap; }
+  .msg .who { font-weight: 600; margin-right: 0.4rem; }
+  .msg.user .who { color: #2563eb; }
+  .msg.assistant .who { color: #16a34a; }
+  .msg.error .who { color: #dc2626; }
+  form { display: flex; gap: 0.5rem; }
+  input[type=text] {
+    flex: 1;
+    padding: 0.6rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid #8888;
+    font-size: 1rem;
+  }
+  button {
+    padding: 0.6rem 1.1rem;
+    border-radius: 6px;
+    border: none;
+    background: #2563eb;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+  p.hint { color: #888; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+  <h1>AI Orchestrator — Test Console</h1>
+  <p class="hint">Calls <code>POST /api/chat</code> on this same server. Right now the orchestrator only understands questions about Pokemon — try "tell me about pikachu".</p>
+  <div id="log"></div>
+  <form id="chat-form">
+    <input id="message" type="text" placeholder="Ask something…" autocomplete="off" required />
+    <button type="submit" id="send-btn">Send</button>
+  </form>
+
+  <script>
+    const log = document.getElementById('log');
+    const form = document.getElementById('chat-form');
+    const input = document.getElementById('message');
+    const sendBtn = document.getElementById('send-btn');
+
+    function appendMessage(who, text, cssClass) {
+      const div = document.createElement('div');
+      div.className = `msg ${cssClass}`;
+      const whoSpan = document.createElement('span');
+      whoSpan.className = 'who';
+      whoSpan.textContent = who + ':';
+      div.appendChild(whoSpan);
+      div.appendChild(document.createTextNode(text));
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const message = input.value.trim();
+      if (!message) return;
+
+      appendMessage('You', message, 'user');
+      input.value = '';
+      sendBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+
+        if (!res.ok) {
+          const body = await res.text();
+          appendMessage('Error', `${res.status} ${res.statusText} — ${body}`, 'error');
+          return;
+        }
+
+        const data = await res.json();
+        appendMessage('Assistant', data.reply, 'assistant');
+      } catch (err) {
+        appendMessage('Error', String(err), 'error');
+      } finally {
+        sendBtn.disabled = false;
+        input.focus();
+      }
+    });
+  </script>
+</body>
+</html>
