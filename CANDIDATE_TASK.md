@@ -6,9 +6,9 @@ This repo contains a working AI orchestrator with one built-in capability: it ca
 questions about Pokemon. The way it does that today is deliberately bad practice —
 `src/Orchestrator/Agents/HardcodedPokemonAgent.cs` is a fixed, three-step pipeline:
 
-1. Ask Ollama (with a hardcoded prompt string) to extract a Pokemon name from the user's message.
+1. Ask the LLM (with a hardcoded prompt string) to extract a Pokemon name from the user's message.
 2. Call PokeAPI directly over `HttpClient` (hardcoded endpoint, hardcoded API — no MCP, no tool-calling).
-3. Ask Ollama (with another hardcoded prompt string) to summarize the raw API response.
+3. Ask the LLM (with another hardcoded prompt string) to summarize the raw API response.
 
 Nothing here is configurable. The model never decides what to call or when — the C# code
 does. Adding a second capability today means copy-pasting a whole new class like this one
@@ -24,10 +24,11 @@ tool stubs (Pokemon / Movies-TV / Countries — pick one).
 Replace the hardcoded pipeline with something that can run **any** agent defined by
 configuration, without code changes. Concretely, the runtime should:
 
-- Load an agent definition (system prompt, Ollama model name, which MCP server(s)/tools
+- Load an agent definition (system prompt, model name, which MCP server(s)/tools
   it has access to) from configuration — e.g. a JSON file — rather than from C# code.
-- Use Ollama's tool-calling support (the model decides which tool to call and with what
-  arguments — see [Ollama's tool calling docs](https://docs.ollama.com/capabilities/tool-calling))
+- Use the LLM's tool-calling support (the model decides which tool to call and with what
+  arguments — see [Groq's tool calling docs](https://console.groq.com/docs/tool-use), which
+  follow the same OpenAI-compatible `tools` shape as `Microsoft.Extensions.AI`'s `ChatOptions.Tools`)
   instead of fixed prompt strings.
 - Drive a real tool-calling loop: send the conversation + available tools to the model,
   execute whatever tool call(s) it requests, feed the result(s) back, repeat until the
@@ -40,14 +41,15 @@ You do not need to preserve `HardcodedPokemonAgent.cs` itself — replace it.
 **Suggested (not mandatory) building blocks**, already referenced in the codebase:
 
 - [`Microsoft.Extensions.AI`](https://learn.microsoft.com/dotnet/ai/ichatclient) — vendor-neutral `IChatClient` / `ChatMessage` / `ChatOptions.Tools` abstractions.
-- `OllamaSharp`'s `OllamaApiClient` — already used in `OllamaCompletionService.cs` — implements `IChatClient`.
+- The OpenAI SDK's `ChatClient`, pointed at Groq's OpenAI-compatible endpoint and wrapped with
+  `.AsIChatClient()` — already used in `GroqCompletionService.cs` — implements `IChatClient`.
 - `IChatClient` has an extension `.AsBuilder().UseFunctionInvocation().Build()` that turns a
   chat client into one that automatically executes a tool-calling loop for you, given a list
   of `AITool`/`AIFunction` instances in `ChatOptions.Tools`.
 
-You're free to hand-roll the tool-calling loop yourself against Ollama's native `/api/chat`
-`tools` field instead — both are acceptable, but the config-driven design matters more than
-which HTTP plumbing you use to get there.
+You're free to hand-roll the tool-calling loop yourself against Groq's OpenAI-compatible
+`/chat/completions` `tools` field instead — both are acceptable, but the config-driven design
+matters more than which HTTP plumbing you use to get there.
 
 ### 2. Build the MCP server
 

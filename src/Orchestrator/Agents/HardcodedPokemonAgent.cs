@@ -18,12 +18,12 @@ namespace Orchestrator.Agents;
 public class HardcodedPokemonAgent
 {
     private readonly HttpClient _pokeApiClient;
-    private readonly OllamaCompletionService _ollama;
+    private readonly GroqCompletionService _llm;
 
-    public HardcodedPokemonAgent(IHttpClientFactory httpClientFactory, OllamaCompletionService ollama)
+    public HardcodedPokemonAgent(IHttpClientFactory httpClientFactory, GroqCompletionService llm)
     {
         _pokeApiClient = httpClientFactory.CreateClient(nameof(HardcodedPokemonAgent));
-        _ollama = ollama;
+        _llm = llm;
     }
 
     public async Task<string> HandleAsync(string userMessage, CancellationToken cancellationToken = default)
@@ -38,7 +38,7 @@ public class HardcodedPokemonAgent
 
             Message: "{userMessage}"
             """;
-        var pokemonName = (await _ollama.CompleteAsync(extractPrompt, cancellationToken))
+        var pokemonName = (await _llm.CompleteAsync(extractPrompt, cancellationToken))
             .Trim()
             .Trim('"', '.', '\'')
             .ToLowerInvariant();
@@ -75,6 +75,6 @@ public class HardcodedPokemonAgent
             Types: {string.Join(", ", pokemon.Types.Select(t => t.Type.Name))}
             Abilities: {string.Join(", ", pokemon.Abilities.Select(a => a.Ability.Name))}
             """;
-        return await _ollama.CompleteAsync(summaryPrompt, cancellationToken);
+        return await _llm.CompleteAsync(summaryPrompt, cancellationToken);
     }
 }
